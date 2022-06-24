@@ -53,11 +53,10 @@ canvas.addEventListener('mousemove', function(event) {
 //TODO: Refactor this function so that scaling is exponential and not linear
 canvas.addEventListener('wheel', function(event) {
     event.preventDefault();
-    let mouseX = event.clientX;
-    let mouseY = event.clientY;
+    let mouseX = event.pageX - canvas.offsetLeft;
+    let mouseY = event.pageY - canvas.offsetTop;
     let scaleFactor = -event.deltaY*0.001;
     let scaleValue1 = Math.min(Math.max(0.125, scaleValue+scaleFactor), 4);
-    console.log(scaleValue1);
 
     context.translate(originX, originY);
     originX -= mouseX/(scaleValue1) - mouseX/scaleValue;
