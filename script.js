@@ -1,11 +1,6 @@
-const MAP_OBJ_ENDPOINT = 'http://localhost:8111/map_obj.json';
-const MAP_INFO_ENDPOINT = 'http://localhost:8111/map_info.json';
-const MAP_ENDPOINT = 'http://localhost:8111/map.img';
-const TEST_MAP_OBJ_ENDPOINT = 'map_obj.json';
-const TEST_MAP_INFO_ENDPOINT = 'map_info.json';
-const TEST_MAP_ENDPOINT = 'map.jpg';
-const MIN_ZOOM = 0.125;
-const MAX_ZOOM = 4;
+const MAP_OBJ_ENDPOINT = 'map_obj.json';
+const MAP_INFO_ENDPOINT = 'map_info.json';
+const MAP_ENDPOINT = 'map.jpg';
 const ZOOM_DX = 0.2;
 class Point {
     /**
@@ -25,8 +20,8 @@ class Point {
      * @returns {number}
      */
         static distance(a, b) {
-        dx = a.x - b.x;
-        dy = a.y - b.y;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
         return Math.hypot(dx, dy);
     }
 }
@@ -67,25 +62,24 @@ class MapInfo {
     }
 }
 
-var mapObjects = [];
-var info = new MapInfo(0,0,0,0,0);
-var isRealTimeModeOn = false;
-var intervalId;
-var isMouseDown = false;
-var hasMouseDragged = false;
-var previousMouse = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element)
-var offset = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element) 
-var mouseFromWheel = new Point(0,0);
-var deltaY = 0;
-var origin = new Point(0,0); // the point around which scaling is applied.
-var zoom = 1;
+let mapObjects = [];
+let info = new MapInfo([],[],0,[],[]);
+let isRealTimeModeOn = false;
+let intervalId;
+let isMouseDown = false;
+let previousMouse = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element)
+let offset = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element) 
+let mouseFromWheel = new Point(0,0);
+let deltaY = 0;
+let origin = new Point(0,0); // the point around which scaling is applied.
+let zoom = 1;
 
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const toggleBtn = document.getElementById("button");
 
-image = new Image();
+const image = new Image();
 image.src = getMap();
 image.onload = function() {
     render();
@@ -118,7 +112,7 @@ function mousedownCallback(event) {
 /**
  * @param {MouseEvent} event 
  */
-function mouseupCallback(event) {
+function mouseupCallback() {
     if (isMouseDown == true) {isMouseDown = false;}
 }
 
@@ -300,7 +294,7 @@ function handleError(reason) {
  * @returns {Promise<Array<MapPoint>>} 
  */
 async function getMapObj() {
-    const data = await getJson(TEST_MAP_OBJ_ENDPOINT);
+    const data = await getJson(MAP_OBJ_ENDPOINT);
     var items = [];
     data.forEach(item => {
         if (item.type == "ground_model" || item.type == "capture_zone") {
@@ -320,7 +314,7 @@ async function getMapObj() {
  * @returns {Promise<MapInfo>}
  */
 async function getInfo() {
-    const data = await getJson(TEST_MAP_INFO_ENDPOINT);
+    const data = await getJson(MAP_INFO_ENDPOINT);
 
     const grid_steps = data.grid_steps;
     const grid_zero = data.grid_zero;
@@ -356,6 +350,6 @@ async function getJson(url) {
  * @returns {string}
  */
 function getMap() {
-    return TEST_MAP_ENDPOINT;
+    return MAP_ENDPOINT;
 }
 
