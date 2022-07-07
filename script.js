@@ -6,6 +6,7 @@ const TEST_MAP_INFO_ENDPOINT = 'map_info.json';
 const TEST_MAP_ENDPOINT = 'map.jpg';
 const MIN_ZOOM = 0.125;
 const MAX_ZOOM = 4;
+const ZOOM_DX = 0.2;
 class Point {
     /**
      * 
@@ -66,7 +67,7 @@ class MapInfo {
     }
 }
 
-var items = [];
+var mapObjects = [];
 var info = new MapInfo(0,0,0,0,0);
 var isRealTimeModeOn = false;
 var intervalId;
@@ -74,10 +75,11 @@ var isMouseDown = false;
 var hasMouseDragged = false;
 var previousMouse = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element)
 var offset = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element) 
-var mouseWhenScroll = new Point(0,0);
-var wheelValue = 0;
+var mouseFromWheel = new Point(0,0);
+var deltaY = 0;
 var origin = new Point(0,0); // the point around which scaling is applied.
 var zoom = 1;
+
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -86,16 +88,16 @@ const toggleBtn = document.getElementById("button");
 image = new Image();
 image.src = getMap();
 image.onload = function() {
-    repaint();
+    render();
 }
 
 //TODO: Rewrite this method to be responsive only to the left mouse button
 //TODO: set cursor image to grabbing hand when dragging...
-canvas.addEventListener('mousedown', mousedown)
-canvas.addEventListener('mouseup', mouseup)
-canvas.addEventListener('mousemove', mousemoveAction)
+canvas.addEventListener('mousedown', mousedownCallback)
+canvas.addEventListener('mouseup', mouseupCallback)
+canvas.addEventListener('mousemove', mousemoveCallback)
 
-canvas.addEventListener('wheel', wheel)
+canvas.addEventListener('wheel', wheelCallback)
 toggleBtn.addEventListener("click", toggleRealTimeMode);
 
 /**
@@ -105,7 +107,7 @@ toggleBtn.addEventListener("click", toggleRealTimeMode);
  *          and the mouse down flag is set.
  * @param {MouseEvent} event 
  */
-function mousedown(event) {
+function mousedownCallback(event) {
     event.preventDefault();
     const mouse = getMouse(event);
     previousMouse.x = mouse.x;
@@ -116,7 +118,7 @@ function mousedown(event) {
 /**
  * @param {MouseEvent} event 
  */
-function mouseup(event) {
+function mouseupCallback(event) {
     if (isMouseDown == true) {isMouseDown = false;}
 }
 
@@ -124,11 +126,11 @@ function mouseup(event) {
  * MODIFIES: this
  * @param {MouseEvent} event 
  */
-function wheel(event) {
+function wheelCallback(event) {
     event.preventDefault();
-    mouseWhenScroll = getMouse(event);
-    wheelValue = -event.deltaY * 0.001;
-    repaint();
+    mouseFromWheel = getMouse(event);
+    deltaY = event.deltaY;
+    render();
 }
 
 /**
@@ -139,13 +141,13 @@ function wheel(event) {
  *          is set to the current point, and the canvas is repainted.
  * @param {MouseEvent} event 
  */
-function mousemoveAction(event) {
+function mousemoveCallback(event) {
     if (isMouseDown == true) {
         const currentMouse = getMouse(event);
         offset.x += currentMouse.x - previousMouse.x;
         offset.y += currentMouse.y - previousMouse.y;
         previousMouse = currentMouse;
-        repaint();
+        render();
     }
 }
 
@@ -165,46 +167,80 @@ function getMouse(event) {
 }
 
 /**
- * REQUIRES: mouse, offset, zoom, origin, wheel, canvas, ctx,
- *           items, and markers must be defined.
+ * REQUIRES: mouse from wheel callback, offset, zoom, origin, mousewheel delta Y, canvas, context,
+ *           and mapObjects list has to be defined.
  * MODIFIES: this
- * NOTE: This method is solely responsible for drawing on the canvas.
- * EFFECTS: Paints the canvas element.
+ * EFFECTS: Handles rendering of the canvas.
  */
-function repaint() {
-    const newZoom = Math.min(Math.max(MIN_ZOOM, zoom + wheelValue), MAX_ZOOM);
-    wheelValue = 0;
-    // NOTE: origin has already been calculated with zoom scale
-    ctx.translate(origin.x, origin.y);
-    ctx.setTransform(newZoom, 0, 0, newZoom, 0 ,0)
-    origin.x -= (-offset.x + mouseWhenScroll.x) / newZoom - (-offset.x + mouseWhenScroll.x) / zoom;  
-    origin.y -= (-offset.y + mouseWhenScroll.y) / newZoom - (-offset.y + mouseWhenScroll.y) / zoom;   
+function render() {
+    handleZoom();
+    draw();
+}
 
-    //TODO: refactor this such that it is more clear that you are using a newly-scaled origin to translate
-    ctx.translate(-origin.x, -origin.y);
-    zoom = newZoom;
+/**
+ * REQUIRES: canvas context, image, map objects list, and zoom to be defined.
+ * MODIFIES: this
+ * EFFECTS: Preforms setup translations on canvas context and then draws graphic elements.
+ */
+function draw() {
+    ctx.save();
+    ctx.translate(offset.x / zoom, offset.y / zoom);
 
-    ctx.clearRect(
-        origin.x,
-        origin.y,
-        canvas.width / zoom,
-        canvas.height / zoom);
-    ctx.drawImage(image, offset.x / zoom, offset.y / zoom);
-    items.forEach(item => {
-        if (item.type == "ground_model") {
-            ctx.strokeStyle = item.color;
-            ctx.fillStyle = item.color;
+    ctx.drawImage(image, 0, 0);
+    mapObjects.forEach(mapObject => {
+        if (mapObject.type == "ground_model") {
+            ctx.strokeStyle = mapObject.color;
+            ctx.fillStyle = mapObject.color;
             ctx.beginPath();
-            ctx.arc(offset.x / zoom + item.x * image.width, offset.y /zoom + item.y * image.height, 5 / zoom, 0, Math.PI*2);
+            ctx.arc(mapObject.x * image.width, mapObject.y * image.height, 5 / zoom, 0, Math.PI*2);
             ctx.fill();
             ctx.stroke();
-        } else if (item.type == "capture_zone") {
-            ctx.strokeStyle = item.color;
+        } else if (mapObject.type == "capture_zone") {
+            ctx.strokeStyle = mapObject.color;
             ctx.beginPath();
-            ctx.arc(offset.x / zoom + item.x * image.width, offset.y / zoom + item.y * image.height, 30 / zoom, 0, Math.PI*2);
+            ctx.arc(mapObject.x * image.width, mapObject.y * image.height, 30 / zoom, 0, Math.PI*2);
             ctx.stroke();
         }
     })
+
+    ctx.restore();
+}
+
+/**
+ * REQUIRES: mouse from wheel callback, offset, zoom, origin, mousewheel delta Y, canvas, context
+ * MODIFIES: this
+ * EFFECTS: Scales and clears the canvas using the mouse cursor as the transformation origin.
+ */
+function handleZoom() {
+    const scale = Math.exp(normalizeOrZero(deltaY) * ZOOM_DX)
+    deltaY = 0; //prevent scaling using the same previous stored delta Y
+    ctx.translate(origin.x, origin.y);
+    const x = -offset.x + mouseFromWheel.x;
+    origin.x -= x / (zoom * scale) - x / zoom;
+    const y = -offset.y + mouseFromWheel.y;
+    origin.y -= y / (zoom * scale) - y / zoom;
+    ctx.scale(scale,scale);
+    ctx.translate(-origin.x, -origin.y);
+
+    zoom *= scale;
+    
+    ctx.clearRect(origin.x, origin.y, canvas.width / zoom, canvas.height / zoom);
+}
+
+/**
+ * EFFECTS: Returns 1 if x is greater than zero and -1 if x is less than zero; 
+ *          if zero return zero.
+ * @param {number} x 
+ * @returns {number}
+ */
+function normalizeOrZero(x) {
+    if (x < 0) {
+        return 1;
+    } else if (x > 0) {
+        return -1;
+    } else {
+        return 0;
+    }
 }
 
 /**
@@ -213,8 +249,8 @@ function repaint() {
  *          then canvas is repainted.
  */
 async function update() {
-    items = await getMapObj();
-    repaint();
+    mapObjects = await getMapObj();
+    render();
 }
 
 /**
