@@ -3,33 +3,7 @@ const MAP_INFO_ENDPOINT = '../../map_info.json';
 const MAP_ENDPOINT = '../../map.jpg';
 const ZOOM_DX = 0.2;
 
-class Point {
-    x: number;
-    y: number;
-    /**
-     * 
-     * @param {number} x 
-     * @param {number} y 
-     */
-    constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-    }
-    
-    /**
-     * EFFECTS: Returns the distance between two given points.
-     * @param {Point} a 
-     * @param {Point} b 
-     * @returns {number}
-     */
-        static distance(a: Point, b: Point): number {
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        return Math.hypot(dx, dy);
-    }
-}
-
-class MapPoint extends Point  {
+class MapPoint extends DOMPoint  {
     type: string;
     color: string;
     icon: string;
@@ -78,11 +52,11 @@ let info = new MapInfo([],[],0,[],[]);
 let isRealTimeModeOn = false;
 let intervalId: number;
 let isMouseDown = false;
-let previousMouse = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element)
-let offset = new Point(0,0); // (number of page-space pixels from the top left edge of the canvas element) 
-let mouseFromWheel = new Point(0,0);
+let previousMouse = new DOMPoint(0,0); // (number of page-space pixels from the top left edge of the canvas element)
+let offset = new DOMPoint(0,0); // (number of page-space pixels from the top left edge of the canvas element) 
+let mouseFromWheel = new DOMPoint(0,0);
 let deltaY = 0;
-let origin = new Point(0,0); // the point around which scaling is applied.
+let origin = new DOMPoint(0,0); // the point around which scaling is applied.
 let zoom = 1;
 
 
@@ -164,10 +138,10 @@ function mousemoveCallback(event: MouseEvent) {
  * @param {MouseEvent} event 
  * @returns {Point}
  */
-function getMouse(event: MouseEvent): Point {
+function getMouse(event: MouseEvent): DOMPoint {
     const x = event.pageX - canvas.offsetLeft;
     const y = event.pageY - canvas.offsetTop;
-    return new Point(x, y);
+    return new DOMPoint(x, y);
 }
 
 /**
